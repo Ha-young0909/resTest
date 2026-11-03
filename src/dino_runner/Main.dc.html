@@ -1,0 +1,560 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>다이노 러너</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#1558d6}a:hover{color:#0d3f9c}
+button:focus-visible,select:focus-visible,a:focus-visible,[tabindex]:focus-visible{outline:3px solid #1558d6;outline-offset:2px}
+</style>
+</helmet>
+<div style="width: 100%; min-height: 100%; box-sizing: border-box; background: #ffffff; color: #202124; font-family: 'Noto Sans KR', system-ui, sans-serif; line-height: 1.7">
+
+  <header style="max-width: 1040px; margin: 0 auto; padding: 16px 24px; box-sizing: border-box; display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; justify-content: space-between">
+    <a href="#top" style="font-size: 22px; font-weight: 700; color: #202124; text-decoration: none; letter-spacing: -0.5px">다이노 러너</a>
+    <nav aria-label="상단 메뉴" style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center">
+      <a href="#themes" style="min-height: 44px; display: inline-flex; align-items: center; padding: 0 8px; font-weight: 500">사용자</a>
+      <select aria-label="언어 선택" style="min-height: 44px; padding: 0 12px; border: 1px solid #bdc1c6; border-radius: 8px; background: #ffffff; color: #202124; font: inherit">
+        <option>한국어</option>
+        <option>English</option>
+        <option>日本語</option>
+        <option>中文</option>
+        <option>Español</option>
+        <option>Français</option>
+        <option>Deutsch</option>
+      </select>
+      <button type="button" style="min-height: 44px; padding: 0 18px; border: 1px solid #bdc1c6; border-radius: 8px; background: #ffffff; color: #202124; font: inherit; font-weight: 500; cursor: pointer">로그인</button>
+      <button type="button" style="min-height: 44px; padding: 0 18px; border: 0; border-radius: 8px; background: {{accent}}; color: #ffffff; font: inherit; font-weight: 500; cursor: pointer">새 계정 만들기</button>
+    </nav>
+  </header>
+
+  <main id="top" style="max-width: 960px; margin: 0 auto; padding: 24px 24px 64px; box-sizing: border-box">
+
+    <section style="text-align: center; margin-bottom: 32px">
+      <h1 style="margin: 0 0 12px; font-size: 40px; line-height: 1.25; letter-spacing: -1px">티렉스 크롬 공룡</h1>
+      <p style="margin: 0 auto; max-width: 640px; font-size: 17px; color: #5f6368">스페이스바를 눌러 게임을 시작하세요. 선인장과 새를 뛰어넘으며 최대한 멀리 달려 보세요.</p>
+    </section>
+
+    <section aria-labelledby="play-title" style="margin-bottom: 40px">
+      <h2 id="play-title" style="margin: 0 0 16px; font-size: 22px; text-align: center">게임을 시작하다</h2>
+
+      <div style="background: #f1f3f4; border-radius: 16px; padding: 24px; box-sizing: border-box">
+        <div tabindex="0" aria-label="게임 화면. 스페이스 또는 위쪽 화살표로 점프, 아래쪽 화살표로 빠르게 내려오기" onKeyDown="{{ onKeyDown }}" onKeyUp="{{ onKeyUp }}" onPointerDown="{{ onPointerDown }}" style="max-width: 720px; margin: 0 auto; border-radius: 10px; overflow: hidden; cursor: pointer; touch-action: manipulation; user-select: none">
+          <canvas ref="{{ setCanvas }}" width="600" height="150" role="img" aria-label="공룡 달리기 게임" style="display: block; width: 100%; height: auto"></canvas>
+        </div>
+        <p style="margin: 16px 0 0; text-align: center; font-size: 15px; color: #5f6368">현재 테마: <strong style="color: #202124">{{themeName}}</strong></p>
+      </div>
+
+      <div style="display: flex; flex-wrap: wrap; gap: 12px 28px; justify-content: center; align-items: center; margin-top: 20px; font-size: 16px">
+        <span style="font-weight: 700">사용하다</span>
+        <span style="display: inline-flex; align-items: center; gap: 8px">
+          <kbd style="min-width: 40px; min-height: 40px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; border: 1px solid #bdc1c6; border-bottom-width: 3px; border-radius: 8px; background: #ffffff; font: inherit; font-weight: 500">↑</kbd>
+          <span style="color: #5f6368">또는</span>
+          <kbd style="min-height: 40px; padding: 0 14px; box-sizing: border-box; display: inline-flex; align-items: center; border: 1px solid #bdc1c6; border-bottom-width: 3px; border-radius: 8px; background: #ffffff; font: inherit; font-weight: 500">스페이스</kbd>
+          <span>점프</span>
+        </span>
+        <span style="display: inline-flex; align-items: center; gap: 8px">
+          <kbd style="min-width: 40px; min-height: 40px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; border: 1px solid #bdc1c6; border-bottom-width: 3px; border-radius: 8px; background: #ffffff; font: inherit; font-weight: 500">↓</kbd>
+          <span>빠르게 내려오기</span>
+        </span>
+      </div>
+    </section>
+
+    <section aria-labelledby="board-title" style="margin-bottom: 56px">
+      <h2 id="board-title" style="margin: 0 0 16px; font-size: 22px">리더보드</h2>
+
+      <sc-if value="{{showForm}}" hint-placeholder-val="{{ false }}">
+        <form onSubmit="{{ onSubmit }}" style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; margin-bottom: 16px; padding: 16px; background: #f1f3f4; border-radius: 12px; box-sizing: border-box">
+          <p style="margin: 0; width: 100%; font-weight: 500">이번 점수 <strong>{{lastScore}}</strong>점을 기록해 보세요.</p>
+          <label style="display: flex; flex-direction: column; gap: 4px; font-size: 14px; color: #5f6368">이름
+            <input type="text" value="{{nameVal}}" onChange="{{ onName }}" maxlength="12" placeholder="익명" style="min-height: 44px; padding: 0 12px; box-sizing: border-box; border: 1px solid #bdc1c6; border-radius: 8px; background: #ffffff; color: #202124; font: inherit">
+          </label>
+          <button type="submit" style="min-height: 44px; padding: 0 20px; border: 0; border-radius: 8px; background: {{accent}}; color: #ffffff; font: inherit; font-weight: 500; cursor: pointer">기록하기</button>
+        </form>
+      </sc-if>
+      <sc-if value="{{showSaved}}" hint-placeholder-val="{{ false }}">
+        <p style="margin: 0 0 16px; font-weight: 500">기록되었습니다.</p>
+      </sc-if>
+
+      <div style="border: 1px solid #dadce0; border-radius: 12px; overflow: hidden">
+        <div aria-hidden="true" style="display: grid; grid-template-columns: 40px 1fr 72px 88px; gap: 8px; padding: 10px 16px; background: #f8f9fa; font-size: 13px; font-weight: 500; color: #5f6368">
+          <span>순위</span><span>이름</span><span>점수</span><span>테마</span>
+        </div>
+        <ol style="list-style: none; margin: 0; padding: 0">
+          <sc-for list="{{rows}}" as="r" hint-placeholder-count="3">
+            <li style="display: grid; grid-template-columns: 40px 1fr 72px 88px; gap: 8px; align-items: center; padding: 12px 16px; border-top: 1px solid #dadce0">
+              <span style="font-weight: 700">{{r.rank}}</span>
+              <span style="overflow-wrap: anywhere">{{r.name}}</span>
+              <span style="font-weight: 500; font-variant-numeric: tabular-nums">{{r.score}}</span>
+              <span style="font-size: 14px; color: #5f6368">{{r.theme}}</span>
+            </li>
+          </sc-for>
+        </ol>
+        <sc-if value="{{empty}}" hint-placeholder-val="{{ true }}">
+          <p style="margin: 0; padding: 24px 16px; text-align: center; color: #5f6368">아직 기록이 없습니다. 게임을 하고 점수를 남겨 보세요.</p>
+        </sc-if>
+      </div>
+
+      <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; margin-top: 12px">
+        <p style="margin: 0; font-size: 14px; color: #5f6368">상위 10개 기록이 이 브라우저에 저장됩니다.</p>
+        <button type="button" onClick="{{ onClear }}" style="min-height: 44px; padding: 0 16px; border: 1px solid #bdc1c6; border-radius: 8px; background: #ffffff; color: #202124; font: inherit; cursor: pointer">기록 지우기</button>
+      </div>
+    </section>
+
+    <section id="themes" aria-labelledby="themes-title" style="margin-bottom: 56px">
+      <h2 id="themes-title" style="margin: 0 0 16px; font-size: 22px">테마 선택</h2>
+      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 12px">
+        <sc-for list="{{themes}}" as="t" hint-placeholder-count="2">
+          <button type="button" onClick="{{ t.pick }}" aria-pressed="{{ t.pressed }}" style="min-height: 56px; display: flex; align-items: center; gap: 12px; padding: 8px 12px; box-sizing: border-box; border: {{t.border}}; border-radius: 12px; background: #ffffff; color: #202124; font: inherit; font-weight: 500; text-align: left; cursor: pointer">
+            <span style="width: 40px; height: 40px; flex: none; border-radius: 8px; border: 1px solid #bdc1c6; box-sizing: border-box; background: {{t.bg}}; position: relative; overflow: hidden">
+              <span style="position: absolute; left: 6px; bottom: 6px; width: 12px; height: 18px; background: {{t.fg}}"></span>
+              <span style="position: absolute; right: 7px; bottom: 6px; width: 8px; height: 12px; background: {{t.ob}}"></span>
+            </span>
+            <span>{{t.name}}</span>
+          </button>
+        </sc-for>
+      </div>
+    </section>
+
+    <article style="max-width: 760px; margin: 0 auto">
+      <section style="margin-bottom: 40px">
+        <h2 style="margin: 0 0 12px; font-size: 26px; letter-spacing: -0.5px">크롬 다이노 게임 - 설명</h2>
+        <p style="margin: 0 0 12px">크롬 다이노 게임은 인터넷 연결이 끊겼을 때 구글 크롬에 나타나는 작은 달리기 게임입니다. 장애물을 뛰어넘으며 최대한 멀리 달린다는 단순한 규칙 덕분에 누구나 바로 즐길 수 있습니다.</p>
+        <p style="margin: 0">이 페이지에서는 연결이 끊기지 않아도 언제든 같은 게임을 할 수 있고, 테마를 바꿔 나만의 분위기로 즐길 수 있습니다.</p>
+      </section>
+
+      <section style="margin-bottom: 40px">
+        <h2 style="margin: 0 0 12px; font-size: 26px; letter-spacing: -0.5px">역사</h2>
+        <p style="margin: 0 0 12px">이 게임은 2014년 크롬에 처음 추가되었습니다. 오프라인 오류 화면을 조금 덜 지루하게 만들자는 작은 아이디어에서 출발했습니다.</p>
+        <p style="margin: 0">흑백 픽셀로 그려진 공룡은 지금도 많은 사람에게 익숙한 모습입니다.</p>
+      </section>
+
+      <section style="margin-bottom: 40px">
+        <h2 style="margin: 0 0 12px; font-size: 26px; letter-spacing: -0.5px">게임 공룡 Google 크롬을 여는 방법?</h2>
+        <p style="margin: 0 0 12px">크롬 주소창에 chrome://dino 를 입력하면 바로 게임을 열 수 있습니다.</p>
+        <p style="margin: 0">인터넷이 끊긴 상태라면 오류 화면의 공룡을 누르거나 스페이스바를 눌러도 시작됩니다.</p>
+      </section>
+
+      <section style="margin-bottom: 40px">
+        <h2 style="margin: 0 0 12px; font-size: 26px; letter-spacing: -0.5px">게임 방법?</h2>
+        <p style="margin: 0 0 12px">스페이스바나 위쪽 화살표로 점프해 선인장을 넘고, 새가 낮게 날아올 때도 점프로 피합니다. 높이 나는 새는 그냥 달려서 아래로 지나갈 수 있습니다.</p>
+        <p style="margin: 0">달린 거리만큼 점수가 오르고, 시간이 지날수록 속도가 빨라집니다. 부딪히면 게임이 끝나고, 스페이스바로 다시 시작할 수 있습니다.</p>
+      </section>
+
+      <section>
+        <h2 style="margin: 0 0 12px; font-size: 26px; letter-spacing: -0.5px">트릭</h2>
+        <p style="margin: 0 0 12px">장애물이 가까워진 뒤에 점프하면 더 낮고 멀리 넘어갑니다. 너무 일찍 뛰면 착지 지점에 다음 장애물이 있을 수 있습니다.</p>
+        <p style="margin: 0">[여기에 나만의 팁이나 규칙을 적어 보세요]</p>
+      </section>
+    </article>
+  </main>
+
+  <footer style="border-top: 1px solid #dadce0; background: #f8f9fa">
+    <div style="max-width: 960px; margin: 0 auto; padding: 32px 24px; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px; font-size: 14px; color: #5f6368">
+      <nav aria-label="하단 메뉴" style="display: flex; flex-wrap: wrap; gap: 4px 20px">
+        <a href="#top" style="min-height: 44px; display: inline-flex; align-items: center">도움말</a>
+        <a href="#top" style="min-height: 44px; display: inline-flex; align-items: center">이용 약관</a>
+        <a href="#top" style="min-height: 44px; display: inline-flex; align-items: center">쿠키 정책</a>
+        <a href="#top" style="min-height: 44px; display: inline-flex; align-items: center">개인정보처리방침</a>
+        <a href="#top" style="min-height: 44px; display: inline-flex; align-items: center">문의하기</a>
+      </nav>
+      <p style="margin: 0">© [사이트 이름], 2026 · 크롬 다이노 게임을 모티브로 한 팬 페이지입니다.</p>
+    </div>
+  </footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#1558d6","options":["#1558d6","#c62828","#2e7d32","#6a1b9a"],"section":"꾸미기"},"gameSpeed":{"editor":"range","default":1,"min":0.6,"max":1.6,"step":0.1,"section":"꾸미기"},"$preview":{"width":1280,"height":2400}}'>
+class Component extends DCLogic {
+  state = { themeId: 'basic', nameVal: '', board: [], lastScore: 0, canSubmit: false, saved: false };
+
+  componentDidMount() {
+    try {
+      const raw = window.localStorage.getItem('dino-board-v1');
+      const list = raw ? JSON.parse(raw) : [];
+      if (Array.isArray(list)) {
+        this.setState({
+          board: list.slice(0, 10).map((x) => ({
+            name: String((x && x.name) || '익명').slice(0, 12),
+            score: Number(x && x.score) || 0,
+            theme: String((x && x.theme) || '')
+          }))
+        });
+      }
+    } catch (e) {}
+  }
+
+  saveBoard(list) {
+    try { window.localStorage.setItem('dino-board-v1', JSON.stringify(list)); } catch (e) {}
+  }
+
+  themes() {
+    return [
+      { id: 'basic', name: '기본', bg: '#ffffff', fg: '#535353', ob: '#535353', gr: '#535353', cl: '#dcdcdc' },
+      { id: 'biglight', name: '빅라이트', bg: '#fffbe6', fg: '#f5a300', ob: '#e65100', gr: '#8d6e00', cl: '#fff0b3', faces: true }
+    ];
+  }
+
+  faceImgs() {
+    if (!this._faces) {
+      const mk = (src) => { const i = new Image(); i.src = src; return i; };
+      this._faces = { dino: mk('/_blob/1f0bd4c13a2238be10a51feae0059af5'), ob: mk('/_blob/cb72010dffe20cf46164fb254cca44c1') };
+    }
+    return this._faces;
+  }
+
+  dinoBody() {
+    return [
+      '..........##########',
+      '.........############',
+      '.........##.#########',
+      '.........############',
+      '.........############',
+      '.........#######.....',
+      '.........#######.....',
+      '#.......########.....',
+      '#......#########.#...',
+      '##....###########....',
+      '###..#############...',
+      '.#################....',
+      '.################.....',
+      '..###############.....',
+      '...##############.....',
+      '....############......',
+      '.....##########.......'
+    ];
+  }
+
+  dinoLegs() {
+    return [
+      ['......####..###.', '......###....##.', '......##........', '......###.......'],
+      ['......####..###.', '......##.....##.', '............##..', '............###.']
+    ];
+  }
+
+  renderVals() {
+    const accent = this.props.accent ?? '#1558d6';
+    if (!this._setCv) {
+      this._setCv = (el) => {
+        if (!el) { this.stopLoop(); this.cv = null; return; }
+        this.cv = el;
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        el.width = 600 * dpr;
+        el.height = 150 * dpr;
+        this.ctx = el.getContext('2d');
+        this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        this.initGame();
+        this.startLoop();
+      };
+    }
+    const cur = this.state.themeId;
+    const all = this.themes();
+    const active = all.find((t) => t.id === cur) || all[0];
+    const rows = this.state.board.map((r, i) => ({
+      rank: i + 1,
+      name: r.name,
+      score: String(r.score).padStart(5, '0'),
+      theme: r.theme
+    }));
+    return {
+      accent,
+      themeName: active.name,
+      rows,
+      empty: rows.length === 0,
+      showForm: this.state.canSubmit && !this.state.saved,
+      showSaved: this.state.canSubmit && this.state.saved,
+      lastScore: this.state.lastScore,
+      nameVal: this.state.nameVal,
+      onName: (e) => this.setState({ nameVal: e.target.value }),
+      onSubmit: (e) => {
+        e.preventDefault();
+        if (!this.state.canSubmit || this.state.saved) return;
+        const nm = (this.state.nameVal || '').trim().slice(0, 12) || '익명';
+        const th = this.themes().find((t) => t.id === this.state.themeId) || this.themes()[0];
+        const list = this.state.board
+          .concat([{ name: nm, score: this.state.lastScore, theme: th.name }])
+          .sort((a, b) => b.score - a.score)
+          .slice(0, 10);
+        this.saveBoard(list);
+        this.setState({ board: list, saved: true });
+      },
+      onClear: () => {
+        this.saveBoard([]);
+        this.setState({ board: [] });
+      },
+      setCanvas: this._setCv,
+      themes: all.map((t) => ({
+        name: t.name,
+        bg: t.bg,
+        fg: t.fg,
+        ob: t.ob,
+        pressed: t.id === cur,
+        border: t.id === cur ? '3px solid ' + accent : '1px solid #bdc1c6',
+        pick: () => this.setState({ themeId: t.id })
+      })),
+      onKeyDown: (e) => {
+        const k = e.key;
+        if (k === ' ' || k === 'ArrowUp') {
+          e.preventDefault();
+          if (!e.repeat) this.press();
+        } else if (k === 'ArrowDown') {
+          e.preventDefault();
+          this.fast = true;
+        }
+      },
+      onKeyUp: (e) => {
+        if (e.key === 'ArrowDown') this.fast = false;
+      },
+      onPointerDown: (e) => {
+        if (e.currentTarget && e.currentTarget.focus) e.currentTarget.focus();
+        this.press();
+      }
+    };
+  }
+
+  componentWillUnmount() {
+    this.stopLoop();
+  }
+
+  initGame() {
+    this.mode = 'idle';
+    this.hi = this.hi || 0;
+    this.score = 0;
+    this.speed = 6;
+    this.dist = 0;
+    this.dy = 0;
+    this.vy = 0;
+    this.fast = false;
+    this.obs = [];
+    this.gap = 260;
+    this.clouds = [{ x: 90, y: 34 }, { x: 310, y: 56 }, { x: 520, y: 26 }];
+    this.diedAt = 0;
+  }
+
+  startLoop() {
+    if (this.raf) return;
+    this.last = 0;
+    this._tick = (t) => this.tick(t);
+    this.raf = requestAnimationFrame(this._tick);
+  }
+
+  stopLoop() {
+    if (this.raf) cancelAnimationFrame(this.raf);
+    this.raf = 0;
+  }
+
+  press() {
+    if (this.mode === 'dead') {
+      if (performance.now() - this.diedAt < 400) return;
+      this.initGame();
+      this.mode = 'run';
+      this.setState({ canSubmit: false, saved: false });
+    } else if (this.mode === 'idle') {
+      this.mode = 'run';
+    }
+    if (this.dy === 0) this.vy = 10.5;
+  }
+
+  tick(t) {
+    this.raf = requestAnimationFrame(this._tick);
+    const dt = this.last ? Math.min((t - this.last) / 16.667, 3) : 1;
+    this.last = t;
+    if (this.mode === 'run') this.step(dt);
+    this.draw(t);
+  }
+
+  rand(a, b) {
+    return a + Math.random() * (b - a);
+  }
+
+  step(dt) {
+    const k = this.props.gameSpeed ?? 1;
+    this.speed = Math.min(13, this.speed + 0.0015 * dt);
+    const eff = this.speed * k;
+    const move = eff * dt;
+    this.dist += move;
+    this.score += move * 0.04;
+
+    if (this.dy > 0 || this.vy > 0) {
+      this.dy += this.vy * dt;
+      this.vy -= 0.65 * (this.fast ? 3 : 1) * dt;
+      if (this.dy <= 0) { this.dy = 0; this.vy = 0; }
+    }
+
+    this.clouds.forEach((c) => {
+      c.x -= move * 0.2;
+      if (c.x < -60) { c.x = 620; c.y = this.rand(18, 70); }
+    });
+
+    this.obs.forEach((o) => { o.x -= move; });
+    this.obs = this.obs.filter((o) => o.x + o.w > -10);
+
+    this.gap -= move;
+    if (this.gap <= 0) {
+      const face = this.state.themeId === 'biglight';
+      const bird = !face && this.score > 300 && Math.random() < 0.28;
+      if (bird) {
+        const lv = [20, 48, 70][Math.floor(Math.random() * 3)];
+        this.obs.push({ t: 'b', x: 610, w: 42, h: 28, up: lv });
+      } else {
+        const big = Math.random() < 0.5;
+        if (face) {
+          const fh = big ? 54 : 40;
+          const fw = Math.round(fh * 0.8);
+          this.obs.push({ t: 'c', x: 610, w: fw, h: fh, cw: fw, n: 1 });
+        } else {
+          const n = 1 + Math.floor(Math.random() * 3);
+          const cw = big ? 24 : 16;
+          this.obs.push({ t: 'c', x: 610, w: n * cw + (n - 1) * 4, h: big ? 48 : 34, cw, n });
+        }
+      }
+      this.gap = this.rand(220 + eff * 18, 420 + eff * 25);
+    }
+
+    const G = 128;
+    const d = { x: 56, y: G - this.dy - 38, w: 30, h: 34 };
+    for (const o of this.obs) {
+      const b = o.t === 'c'
+        ? { x: o.x + 3, y: G - o.h + 3, w: o.w - 6, h: o.h - 3 }
+        : { x: o.x + 4, y: G - o.up - o.h + 4, w: o.w - 8, h: o.h - 8 };
+      if (d.x < b.x + b.w && d.x + d.w > b.x && d.y < b.y + b.h && d.y + d.h > b.y) {
+        this.mode = 'dead';
+        this.diedAt = performance.now();
+        this.hi = Math.max(this.hi, Math.floor(this.score));
+        this.setState({ lastScore: Math.floor(this.score), canSubmit: this.score >= 1, saved: false });
+        break;
+      }
+    }
+  }
+
+  sprite(c, rows, x, y, s) {
+    rows.forEach((row, ri) => {
+      let ci = 0;
+      while (ci < row.length) {
+        if (row[ci] === '#') {
+          let len = 1;
+          while (ci + len < row.length && row[ci + len] === '#') len++;
+          c.fillRect(x + ci * s, y + ri * s, len * s, s);
+          ci += len;
+        } else {
+          ci++;
+        }
+      }
+    });
+  }
+
+  draw(t) {
+    const c = this.ctx;
+    if (!c) return;
+    const W = 600, H = 150, G = 128;
+    const all = this.themes();
+    const th = all.find((x) => x.id === this.state.themeId) || all[0];
+
+    c.fillStyle = th.bg;
+    c.fillRect(0, 0, W, H);
+
+    c.fillStyle = th.cl;
+    this.clouds.forEach((cl) => {
+      c.fillRect(cl.x, cl.y, 46, 10);
+      c.fillRect(cl.x + 8, cl.y - 6, 28, 8);
+    });
+
+    c.fillStyle = th.gr;
+    c.fillRect(0, G + 1, W, 2);
+    for (let i = 0; i < 14; i++) {
+      let x = ((i * 53 + ((i * i * 7) % 40)) - this.dist) % (W + 60);
+      if (x < 0) x += W + 60;
+      c.fillRect(x, G + 8 + (i % 3) * 5, 6 + (i % 4) * 3, 2);
+    }
+
+    c.fillStyle = th.ob;
+    this.obs.forEach((o) => {
+      if (th.faces && o.t === 'c') {
+        const f = this.faceImgs().ob;
+        const y = G - o.h;
+        if (f.complete && f.naturalWidth) c.drawImage(f, o.x, y, o.w, o.h);
+        else c.fillRect(o.x, y, o.w, o.h);
+        c.strokeStyle = th.ob;
+        c.lineWidth = 2;
+        c.strokeRect(o.x, y, o.w, o.h);
+      } else if (o.t === 'c') {
+        for (let i = 0; i < o.n; i++) {
+          const x = o.x + i * (o.cw + 4);
+          const h = o.h;
+          const cw = o.cw;
+          c.fillRect(x + cw * 0.32, G - h, cw * 0.36, h);
+          c.fillRect(x + 1, G - h * 0.62, cw * 0.34, 4);
+          c.fillRect(x + 1, G - h * 0.62 - h * 0.2, 4, h * 0.2 + 4);
+          c.fillRect(x + cw * 0.66, G - h * 0.5, cw * 0.32, 4);
+          c.fillRect(x + cw - 5, G - h * 0.5 - h * 0.2, 4, h * 0.2 + 4);
+        }
+      } else {
+        const y = G - o.up - o.h;
+        c.fillRect(o.x, y + 13, 10, 4);
+        c.fillRect(o.x + 8, y + 12, 26, 8);
+        c.fillRect(o.x + 30, y + 10, 12, 6);
+        c.fillRect(o.x + 38, y + 13, 5, 3);
+        c.beginPath();
+        if (Math.floor(t / 180) % 2 === 0) {
+          c.moveTo(o.x + 14, y + 12); c.lineTo(o.x + 26, y + 12); c.lineTo(o.x + 20, y);
+        } else {
+          c.moveTo(o.x + 14, y + 20); c.lineTo(o.x + 26, y + 20); c.lineTo(o.x + 20, y + 28);
+        }
+        c.closePath();
+        c.fill();
+      }
+    });
+
+    c.fillStyle = th.fg;
+    const legs = this.dinoLegs();
+    const frame = this.mode === 'run' && this.dy === 0 ? Math.floor(this.dist / 18) % 2 : 0;
+    const body = this.dinoBody();
+    const top = G - 42 - this.dy;
+    if (th.faces) {
+      this.sprite(c, body.slice(5), 50, top + 10, 2);
+      const f = this.faceImgs().dino;
+      c.save();
+      c.beginPath();
+      c.arc(82, top + 8, 17, 0, Math.PI * 2);
+      c.clip();
+      if (f.complete && f.naturalWidth) c.drawImage(f, 65, top - 9, 34, 34);
+      else c.fillRect(65, top - 9, 34, 34);
+      c.restore();
+      c.strokeStyle = th.fg;
+      c.lineWidth = 2;
+      c.beginPath();
+      c.arc(82, top + 8, 17, 0, Math.PI * 2);
+      c.stroke();
+    } else {
+      this.sprite(c, body, 50, top, 2);
+    }
+    this.sprite(c, legs[frame], 50, top + body.length * 2, 2);
+
+    const pad = (n) => String(Math.floor(n)).padStart(5, '0');
+    c.font = '700 14px monospace';
+    c.textAlign = 'right';
+    c.textBaseline = 'alphabetic';
+    c.fillText('HI ' + pad(this.hi) + '  ' + pad(this.score), W - 14, 22);
+
+    c.textAlign = 'center';
+    if (this.mode === 'idle') {
+      c.font = '500 15px "Noto Sans KR", sans-serif';
+      c.fillText('스페이스 또는 터치로 시작', W / 2, 62);
+    } else if (this.mode === 'dead') {
+      c.font = '700 20px monospace';
+      c.fillText('GAME OVER', W / 2, 58);
+      c.font = '500 14px "Noto Sans KR", sans-serif';
+      c.fillText('스페이스 또는 터치로 다시 시작', W / 2, 84);
+    }
+  }
+}
+</script>
+</body>
+</html>
