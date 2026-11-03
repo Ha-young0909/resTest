@@ -13,6 +13,10 @@ streamlit run src/main.py
 
 실행하면 왼쪽 사이드바에서 `main`(AI 채팅)과 `dino game`(공룡 게임)을 오갈 수 있습니다.
 
+## 테마
+
+`dino game` 페이지 아래의 버튼으로 `기본`과 `빅라이트` 테마를 고를 수 있습니다. 빅라이트는 공룡 머리와 장애물을 `assets/dino-face.jpg`, `assets/obstacle-face.jpg` 사진으로 그리며, 사진은 `src/dino_game.html`에 data URI로 내장되어 있습니다(사진을 바꾸면 HTML의 data URI도 다시 만들어야 합니다).
+
 ## 일일 리더보드 (Supabase)
 
 `dino game` 페이지는 Supabase로 하루(한국 시간 기준) 단위 TOP 10을 보여줍니다. 플레이어당 그날의 최고 점수 1건만 저장됩니다.

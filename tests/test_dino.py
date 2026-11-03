@@ -35,3 +35,16 @@ def test_supabase_config_is_injected_as_js_string_literals():
 def test_leaderboard_renders_names_without_innerhtml():
     # 닉네임은 사용자 입력이므로 innerHTML로 그리면 XSS가 된다.
     assert "innerHTML" not in load_game_html()
+
+
+def test_only_basic_and_biglight_themes():
+    html = load_game_html()
+    assert 'data-theme="basic"' in html and 'data-theme="biglight"' in html
+    assert html.count('data-theme="') == 2
+
+
+def test_biglight_faces_are_embedded_not_fetched():
+    html = load_game_html()
+    # 사진은 data URI로 내장되어 있어야 한다 (st.iframe은 상대 경로를 풀지 못한다).
+    assert html.count("data:image/jpeg;base64,") == 2
+    assert "__DINO_FACE_DATA__" not in html and "__OBSTACLE_FACE_DATA__" not in html
