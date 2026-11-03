@@ -4,46 +4,129 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
-  html, body { margin: 0; background: transparent; font-family: sans-serif; }
-  #wrap { max-width: 900px; margin: 0 auto; }
-  canvas { width: 100%; display: block; border-bottom: 1px solid #ddd; outline: none; cursor: pointer; image-rendering: pixelated; }
-  #hint { text-align: center; color: #888; font-size: 13px; margin-top: 6px; }
-  #themes { display: flex; gap: 8px; justify-content: center; margin-top: 10px; }
-  #themes button { padding: 6px 14px; border: 1px solid #bbb; border-radius: 16px; background: #fff; color: #535353; font: 13px sans-serif; cursor: pointer; }
-  #themes button[aria-pressed="true"] { background: #535353; color: #fff; border-color: #535353; }
-  #board { display: none; margin-top: 14px; padding: 12px 16px; background: #f7f7f7; color: #535353; border: 1px solid #ddd; border-radius: 6px; }
-  #board h3 { margin: 0 0 8px; font-size: 15px; }
-  #board h3 small { font-weight: normal; color: #888; font-size: 12px; margin-left: 6px; }
-  #nameRow { display: flex; gap: 6px; align-items: center; margin-bottom: 10px; font-size: 13px; }
-  #nameRow input { flex: 1; max-width: 180px; padding: 4px 8px; border: 1px solid #bbb; border-radius: 4px; font: inherit; color: inherit; background: #fff; }
-  #status { color: #888; font-size: 12px; margin-bottom: 8px; min-height: 16px; }
-  #rows { list-style: none; margin: 0; padding: 0; font: 14px monospace; }
-  #rows li { display: flex; gap: 10px; padding: 3px 4px; border-bottom: 1px solid #eee; }
-  #rows li.me { background: #ececec; font-weight: bold; }
-  #rows .rank { width: 28px; text-align: right; color: #888; }
-  #rows .nick { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  #rows .pts { width: 60px; text-align: right; }
-  #rows .empty { color: #888; justify-content: center; border: 0; }
+  /* 시안 B · 포스터 타이포 — 키네틱 타이포그래피(주) + 스크롤 연출 + 접근성 기본값 */
+  :root {
+    --bg: #fff3c4; --ink: #1a1200; --paper: #fffbe6; --accent: #e65100; --muted: #6b5a1f;
+    color-scheme: light;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { background: var(--bg); color: var(--ink); overflow-x: clip; font-family: ui-sans-serif, system-ui, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  #wrap { max-width: 900px; margin: 0 auto; padding: 0 16px 48px; }
+
+  /* 히어로: 게임 상태에 반응하는 가변 타이틀 + 점수 숫자 (스크롤하면 작아지며 상단에 붙는다) */
+  .hero {
+    position: sticky; top: 0; z-index: 5; display: flex; align-items: flex-end; justify-content: space-between; gap: 12px;
+    padding: 16px 0 10px; background: var(--bg); border-bottom: 3px solid transparent;
+  }
+  h1 {
+    margin: 0; display: flex; flex-wrap: wrap; column-gap: .22em; font-size: clamp(52px, 15vw, 128px); line-height: .88; letter-spacing: -.04em;
+    font-weight: 800; user-select: none;
+  }
+  h1 .word { display: inline-flex; }
+  h1 .l { display: inline-block; font-weight: var(--w, 800); transform: translateY(var(--y, 0)) rotate(var(--r, 0deg)); will-change: transform; }
+  .bigscore { text-align: right; line-height: .85; }
+  .bigscore small { display: block; font-size: 11px; letter-spacing: .24em; color: var(--muted); margin-top: 6px; }
+  #bigScore {
+    --p: 0%; display: inline-block; font-size: clamp(36px, 11vw, 96px); font-weight: 700; letter-spacing: -.02em; font-variant-numeric: tabular-nums;
+    color: transparent; -webkit-text-stroke: 2px var(--ink);
+    background: linear-gradient(var(--accent), var(--accent)) no-repeat 0 100% / 100% var(--p);
+    -webkit-background-clip: text; background-clip: text;
+  }
+
+  /* 마퀴: 장식(스크린리더에는 숨김). 실제 안내는 #hint 텍스트 */
+  .marquee { overflow: hidden; margin: 6px -16px 16px; padding: 8px 0; background: var(--ink); color: var(--bg); }
+  .marquee div { display: flex; width: max-content; animation: run 26s linear infinite; }
+  .marquee span { padding-right: 1.4em; font-size: 15px; font-weight: 800; letter-spacing: .12em; white-space: nowrap; }
+  .marquee:hover div { animation-play-state: paused; }
+  @keyframes run { to { transform: translateX(-50%); } }
+
+  .stage { border: 3px solid var(--ink); border-radius: 18px; background: var(--paper); box-shadow: 8px 8px 0 var(--ink); padding: 8px; }
+  canvas { width: 100%; display: block; border-radius: 10px; outline: none; cursor: pointer; image-rendering: pixelated; }
+  canvas:focus-visible { outline: 4px solid var(--accent); outline-offset: 4px; }
+  #hint { text-align: center; margin: 22px 0 0; font-size: 14px; font-weight: 600; color: var(--muted); }
+
+  #themes { display: flex; gap: 10px; justify-content: center; margin: 18px 0 0; }
+  #themes button {
+    font: 800 15px/1 inherit; font-family: inherit; color: var(--ink); cursor: pointer; padding: 11px 22px; border-radius: 99px;
+    border: 3px solid var(--ink); background: var(--paper); box-shadow: 3px 3px 0 var(--ink); transition: transform .08s, box-shadow .08s;
+  }
+  #themes button:active { transform: translate(3px, 3px); box-shadow: 0 0 0 var(--ink); }
+  #themes button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+  #themes button:focus-visible, #nick:focus-visible { outline: 4px solid var(--accent); outline-offset: 3px; }
+
+  /* 리더보드: 포스터처럼 큰 숫자 */
+  #board { display: none; margin-top: 44px; }
+  #board h3 { margin: 0 0 6px; font-size: clamp(30px, 8vw, 56px); line-height: 1; letter-spacing: -.03em; font-weight: 900; }
+  #board h3 small { display: block; margin-top: 8px; font-size: 12px; letter-spacing: .08em; font-weight: 600; color: var(--muted); }
+  #nameRow { display: flex; gap: 10px; align-items: center; margin: 16px 0 6px; font-size: 14px; font-weight: 700; }
+  #nameRow input { flex: 1; max-width: 240px; padding: 10px 12px; font: 700 15px inherit; font-family: inherit; color: var(--ink); background: var(--paper); border: 3px solid var(--ink); border-radius: 12px; }
+  #status { min-height: 18px; margin-bottom: 10px; font-size: 13px; font-weight: 700; color: var(--accent); }
+  #rows { list-style: none; margin: 0; padding: 0; border-top: 3px solid var(--ink); }
+  #rows li { display: flex; align-items: center; gap: 14px; padding: 8px 4px; border-bottom: 3px solid var(--ink); }
+  #rows .rank { width: 1.4em; text-align: center; font-size: clamp(30px, 8vw, 56px); font-weight: 900; line-height: 1; color: var(--accent); }
+  #rows .nick { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: clamp(18px, 4.6vw, 28px); font-weight: 800; }
+  #rows .pts { font-size: clamp(20px, 5vw, 32px); font-weight: 900; font-variant-numeric: tabular-nums; }
+  #rows li:first-child { background: var(--accent); color: var(--paper); }
+  #rows li:first-child .rank { color: var(--paper); }
+  #rows li.me { box-shadow: inset 8px 0 0 var(--accent); }
+  #rows li:first-child.me { box-shadow: inset 8px 0 0 var(--ink); }
+  #rows li.empty { justify-content: center; font-size: 16px; font-weight: 700; padding: 22px; }
+
+  /* 스크롤 구동 연출: 타이틀 축소 + 줄이 옆에서 들어옴 */
+  @media (prefers-reduced-motion: no-preference) {
+    @supports (animation-timeline: view()) {
+      h1 { animation: shrink linear both; animation-timeline: scroll(root); animation-range: 0 260px; }
+      .bigscore #bigScore { animation: shrinkNum linear both; animation-timeline: scroll(root); animation-range: 0 260px; }
+      #rows li { animation: slide linear both; animation-timeline: view(); animation-range: entry 0% entry 70%; }
+    }
+  }
+  @keyframes shrink { to { font-size: 40px; } }
+  @keyframes shrinkNum { to { font-size: 34px; } }
+  @keyframes slide { from { opacity: 0; transform: translateX(-60px); } to { opacity: 1; transform: none; } }
+
+  @media (prefers-contrast: more) { :root { --muted: #1a1200; --bg: #fff; } }
+  @media (prefers-reduced-motion: reduce) { .marquee div { animation: none; } * { transition: none !important; } }
 </style>
 </head>
 <body>
-<div id="wrap">
-  <canvas id="game" width="600" height="150" tabindex="0"></canvas>
-  <div id="hint">스페이스 / ↑ : 점프 &nbsp;·&nbsp; ↓ : 숙이기(공중에선 빨리 내려오기) &nbsp;·&nbsp; 화면 터치/클릭도 가능</div>
+<div id="live" class="sr" role="status" aria-live="polite"></div>
+
+<main id="wrap">
+  <header class="hero">
+    <h1 id="title" aria-label="DINO RUN"><span class="word" aria-hidden="true">DINO</span><span class="word" aria-hidden="true">RUN</span></h1>
+    <div class="bigscore" aria-hidden="true"><span id="bigScore">00000</span><small>SCORE</small></div>
+  </header>
+
+  <div class="marquee" aria-hidden="true">
+    <div>
+      <span>SPACE / ↑ JUMP ✺ ↓ DUCK ✺ TAP TO PLAY ✺ BIGLIGHT ✺ DAILY TOP 10 ✺</span>
+      <span>SPACE / ↑ JUMP ✺ ↓ DUCK ✺ TAP TO PLAY ✺ BIGLIGHT ✺ DAILY TOP 10 ✺</span>
+    </div>
+  </div>
+
+  <div class="stage">
+    <canvas id="game" width="600" height="150" tabindex="0" aria-label="공룡 게임 화면. 스페이스바 또는 위쪽 화살표로 점프, 아래쪽 화살표로 숙이기"></canvas>
+  </div>
+  <p id="hint">스페이스 / ↑ : 점프 &nbsp;·&nbsp; ↓ : 숙이기(공중에선 빨리 내려오기) &nbsp;·&nbsp; 화면 터치/클릭도 가능</p>
+
   <div id="themes" role="group" aria-label="테마">
     <button type="button" data-theme="basic" aria-pressed="true">기본</button>
     <button type="button" data-theme="biglight" aria-pressed="false">빅라이트</button>
   </div>
-  <div id="board">
-    <h3>오늘의 TOP 10<small>매일 자정(KST)에 초기화</small></h3>
+
+  <section id="board" aria-labelledby="boardTitle">
+    <h3 id="boardTitle">오늘의 TOP 10<small>매일 자정(KST)에 초기화</small></h3>
     <div id="nameRow">
       <label for="nick">닉네임</label>
       <input id="nick" maxlength="12" placeholder="최대 12자" autocomplete="off">
     </div>
     <div id="status"></div>
     <ol id="rows"></ol>
-  </div>
-</div>
+  </section>
+</main>
+
 <script>
 // 상수는 dinorunner.com의 게임 스크립트(809.js)에서 관찰한 값을 기준으로 했고, 코드와 그래픽은 직접 작성했다.
 (function () {
@@ -420,6 +503,53 @@
 
   // 테스트용 훅 (브라우저 콘솔 / 자동 검증에서 사용)
   window.__dino = { get state() { return state; }, get speed() { return speed; }, get score() { return score(); }, get obstacles() { return obstacles; }, get trexY() { return trex.y; }, press: press };
+})();
+</script>
+<script>
+// 시안 B 보조 스크립트: 게임 상태 → 타이틀 글자 굵기/움직임, 점수 숫자 채우기, 스크린리더 안내
+(function () {
+  "use strict";
+  var d = window.__dino; if (!d) return;
+  var reduce = matchMedia("(prefers-reduced-motion: reduce)");
+  var live = document.getElementById("live"), bigEl = document.getElementById("bigScore");
+
+  // 타이틀을 글자 단위로 쪼갠다
+  var letters = [];
+  Array.prototype.forEach.call(document.querySelectorAll("#title .word"), function (w) {
+    var txt = w.textContent; w.textContent = "";
+    txt.split("").forEach(function (ch) { var s = document.createElement("span"); s.className = "l"; s.textContent = ch; w.appendChild(s); letters.push(s); });
+  });
+
+  function pad(n) { return ("00000" + n).slice(-5); }
+  var last = d.state, t0 = performance.now(), crashedAt = 0;
+
+  (function loop(now) {
+    requestAnimationFrame(loop);
+    var s = d.state, sp = d.speed;
+    if (s !== last) {
+      if (s === "running") live.textContent = "게임 시작";
+      else if (s === "crashed") { live.textContent = "게임 오버. 점수 " + d.score + "점"; crashedAt = now; }
+      last = s;
+    }
+    var sc = d.score;
+    bigEl.textContent = pad(sc);
+    bigEl.style.setProperty("--p", (s === "waiting" ? 0 : (sc % 100)) + "%");
+
+    var t = (now - t0) / 1000, k = Math.min(1, Math.max(0, (sp - 6) / 7));  // 0(느림) ~ 1(최고 속도)
+    letters.forEach(function (el, i) {
+      var w, y = 0, r = 0;
+      if (reduce.matches) { w = 800; }
+      else if (s === "running") {
+        var f = 2 + k * 6, a = 220 + k * 260;                     // 빨라질수록 더 빠르고 크게 출렁
+        w = 560 + Math.sin(t * f + i * 0.8) * a; y = Math.sin(t * f * 1.3 + i) * (1 + k * 5);
+      } else if (s === "crashed") {
+        w = 900; r = Math.sin((now - crashedAt) / 60 + i * 2) * Math.max(0, 8 - (now - crashedAt) / 120);  // 쾅 하고 굳어서 잠깐 흔들림
+      } else { w = 420 + Math.sin(t * 1.2 + i * 0.7) * 300; }      // 대기: 숨 쉬듯 천천히
+      el.style.setProperty("--w", Math.round(Math.max(100, Math.min(900, w))));
+      el.style.setProperty("--y", y.toFixed(1) + "px");
+      el.style.setProperty("--r", r.toFixed(1) + "deg");
+    });
+  })(t0);
 })();
 </script>
 </body>

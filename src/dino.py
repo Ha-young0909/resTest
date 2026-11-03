@@ -30,7 +30,7 @@ def get_supabase_config() -> tuple[str, str]:
     return url, key
 
 
-def render_dino_game(height: int = 620) -> None:
+def render_dino_game(height: int = 920) -> None:
     import streamlit as st
 
     html = load_game_html(*get_supabase_config())
