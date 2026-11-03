@@ -205,7 +205,7 @@ class Component extends DCLogic {
   faceImgs() {
     if (!this._faces) {
       const mk = (src) => { const i = new Image(); i.src = src; return i; };
-      this._faces = { dino: mk('/_blob/1f0bd4c13a2238be10a51feae0059af5'), ob: mk('/_blob/cb72010dffe20cf46164fb254cca44c1') };
+      this._faces = { dino: mk('assets/dino-face.jpg'), ob: mk('assets/obstacle-face.jpg') };
     }
     return this._faces;
   }
