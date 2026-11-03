@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  html, body { margin: 0; background: transparent; font-family: sans-serif; }
+  #wrap { max-width: 900px; margin: 0 auto; }
+  canvas { width: 100%; display: block; border-bottom: 1px solid #ddd; outline: none; cursor: pointer; image-rendering: pixelated; }
+  #hint { text-align: center; color: #888; font-size: 13px; margin-top: 6px; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="game" width="600" height="150" tabindex="0"></canvas>
+  <div id="hint">스페이스 / ↑ : 점프 &nbsp;·&nbsp; ↓ : 숙이기(공중에선 빨리 내려오기) &nbsp;·&nbsp; 화면 터치/클릭도 가능</div>
+</div>
+<script>
+// 상수는 dinorunner.com의 게임 스크립트(809.js)에서 관찰한 값을 기준으로 했고, 코드와 그래픽은 직접 작성했다.
+(function () {
+  "use strict";
+
+  var W = 600, H = 150, FPS = 60, MS_PER_FRAME = 1000 / FPS;
+  var CFG = {
+    ACCELERATION: 0.001, BOTTOM_PAD: 10, CLEAR_TIME: 3000, GAMEOVER_CLEAR_TIME: 750,
+    GAP_COEFFICIENT: 0.6, MAX_GAP_COEFFICIENT: 1.5, GRAVITY: 0.6, MAX_SPEED: 13, SPEED: 6,
+    MAX_OBSTACLE_LENGTH: 3, MAX_OBSTACLE_DUPLICATION: 2, DISTANCE_COEFFICIENT: 0.025,
+    ACHIEVEMENT_DISTANCE: 100, MAX_CLOUDS: 6, CLOUD_FREQUENCY: 0.5, BG_CLOUD_SPEED: 0.2
+  };
+  var TREX = {
+    WIDTH: 44, HEIGHT: 47, WIDTH_DUCK: 59, HEIGHT_DUCK: 25, START_X: 50,
+    JUMP_VELOCITY: -10, DROP_VELOCITY: -5, MIN_JUMP_HEIGHT: 30, MAX_JUMP_HEIGHT: 30, SPEED_DROP: 3
+  };
+  var TREX_BOXES = {
+    RUNNING: [[22, 0, 17, 16], [1, 18, 30, 9], [10, 35, 14, 8], [1, 24, 29, 5], [5, 30, 21, 4], [9, 34, 15, 4]],
+    DUCKING: [[1, 18, 55, 25]]
+  };
+  var OBSTACLES = [
+    { type: "CACTUS_SMALL", width: 17, height: 35, yPos: 105, multipleSpeed: 4, minGap: 120, minSpeed: 0,
+      boxes: [[0, 7, 5, 27], [4, 0, 6, 34], [10, 4, 7, 14]] },
+    { type: "CACTUS_LARGE", width: 25, height: 50, yPos: 90, multipleSpeed: 7, minGap: 120, minSpeed: 0,
+      boxes: [[0, 12, 7, 38], [8, 0, 7, 49], [13, 10, 10, 38]] },
+    { type: "PTERODACTYL", width: 46, height: 40, yPos: [100, 75, 50], multipleSpeed: 999, minGap: 150, minSpeed: 8.5,
+      speedOffset: 0.8, frameRate: 1000 / 6,
+      boxes: [[15, 15, 16, 5], [18, 21, 24, 6], [2, 14, 4, 3], [6, 10, 4, 7], [10, 8, 6, 9]] }
+  ];
+  var GROUND_Y = H - TREX.HEIGHT - CFG.BOTTOM_PAD;  // 93
+  var INK = "#535353", PAPER = "#f7f7f7";
+
+  var canvas = document.getElementById("game");
+  var ctx = canvas.getContext("2d");
+
+  function rand(a, b) { return Math.floor(Math.random() * (b - a + 1)) + a; }
+  function rect(x, y, w, h, c) { ctx.fillStyle = c || INK; ctx.fillRect(Math.round(x), Math.round(y), w, h); }
+  function overlap(a, b) { return a[0] < b[0] + b[2] && a[0] + a[2] > b[0] && a[1] < b[1] + b[3] && a[1] + a[3] > b[1]; }
+  function shift(box, dx, dy) { return [box[0] + dx, box[1] + dy, box[2], box[3]]; }
+
+  var hiScore = 0;
+  try { hiScore = parseInt(localStorage.getItem("dinoHi") || "0", 10) || 0; } catch (e) {}
+
+  var state, trex, obstacles, clouds, groundBumps, speed, distance, runningTime, gameOverAt, time, raf;
+
+  function reset() {
+    state = "waiting";
+    speed = CFG.SPEED; distance = 0; runningTime = 0; gameOverAt = 0;
+    obstacles = []; clouds = []; groundBumps = [];
+    for (var i = 0; i < 12; i++) groundBumps.push({ x: rand(0, W), y: rand(GROUND_Y + TREX.HEIGHT - 4 + 3, H - 2), w: rand(1, 4) });
+    trex = { y: GROUND_Y, v: 0, jumping: false, ducking: false, speedDrop: false, reachedMin: false, frame: 0, frameT: 0 };
+  }
+
+  // ---- 공룡 ----
+  function startJump() {
+    if (trex.jumping) return;
+    trex.jumping = true; trex.ducking = false; trex.reachedMin = false; trex.speedDrop = false;
+    trex.v = TREX.JUMP_VELOCITY - speed / 10;
+  }
+  function endJump() {
+    if (trex.reachedMin && trex.v < TREX.DROP_VELOCITY) trex.v = TREX.DROP_VELOCITY;
+  }
+  function updateTrex(dt) {
+    var f = dt / MS_PER_FRAME;
+    if (trex.jumping) {
+      trex.y += Math.round(trex.v * (trex.speedDrop ? TREX.SPEED_DROP : 1) * f);
+      trex.v += CFG.GRAVITY * f;
+      if (trex.y < GROUND_Y - TREX.MIN_JUMP_HEIGHT || trex.speedDrop) trex.reachedMin = true;
+      // 원본 스크립트도 최고 높이를 지면 기준이 아닌 화면 y좌표(30)와 직접 비교한다.
+      if (trex.y < TREX.MAX_JUMP_HEIGHT || trex.speedDrop) endJump();
+      if (trex.y > GROUND_Y) { trex.y = GROUND_Y; trex.v = 0; trex.jumping = false; trex.speedDrop = false; }
+    } else {
+      trex.frameT += dt;
+      if (trex.frameT >= (trex.ducking ? 125 : 1000 / 12)) { trex.frameT = 0; trex.frame ^= 1; }
+    }
+  }
+  function drawTrex(crashed) {
+    var x = TREX.START_X, y = trex.y, leg = (!trex.jumping && !crashed) ? trex.frame : 0;
+    if (trex.ducking && !trex.jumping) {
+      rect(x, y + 22, 44, 16);              // 몸통
+      rect(x + 40, y + 18, 19, 13);         // 머리
+      rect(x + 44, y + 22, 2, 2, PAPER);    // 눈
+      rect(x + 8, y + 38, 6, leg ? 5 : 9); rect(x + 24, y + 38, 6, leg ? 9 : 5);
+      rect(x - 4, y + 24, 6, 6);            // 꼬리
+      return;
+    }
+    rect(x + 22, y, 22, 16);                // 머리
+    rect(x + 34, y + 10, 10, 6, PAPER); rect(x + 34, y + 12, 8, 4);  // 입
+    rect(x + 36, y + 3, 3, 3, crashed ? INK : PAPER);               // 눈
+    if (crashed) rect(x + 37, y + 4, 1, 1, PAPER);
+    rect(x + 22, y + 16, 12, 8);            // 목
+    rect(x + 4, y + 18, 28, 18);            // 몸통
+    rect(x, y + 20, 6, 8);                  // 꼬리
+    rect(x + 32, y + 26, 6, 3);             // 팔
+    rect(x + 8, y + 36, 6, leg ? 6 : 11); rect(x + 20, y + 36, 6, leg ? 11 : 6);
+    rect(x + 8, y + (leg ? 42 : 46), 10, 1); rect(x + 20, y + (leg ? 46 : 42), 10, 1);
+  }
+
+  // ---- 장애물 ----
+  function addObstacle() {
+    var t, tries = 0, dup;
+    do {
+      t = OBSTACLES[rand(0, OBSTACLES.length - 1)];
+      dup = 0;
+      for (var i = obstacles.length - 1; i >= 0 && obstacles[i].t === t; i--) dup++;
+      tries++;
+    } while ((t.minSpeed > speed || dup >= CFG.MAX_OBSTACLE_DUPLICATION) && tries < 30);
+    if (t.minSpeed > speed) t = OBSTACLES[0];
+    var size = rand(1, CFG.MAX_OBSTACLE_LENGTH);
+    if (size > 1 && t.multipleSpeed > speed) size = 1;
+    var width = t.width * size;
+    var y = Array.isArray(t.yPos) ? t.yPos[rand(0, t.yPos.length - 1)] : t.yPos;
+    var boxes = t.boxes.map(function (b) { return b.slice(); });
+    if (size > 1 && boxes.length === 3) {
+      boxes[1][2] = width - boxes[0][2] - boxes[2][2];
+      boxes[2][0] = width - boxes[2][2];
+    }
+    var base = Math.round(width * speed + t.minGap * CFG.GAP_COEFFICIENT);
+    obstacles.push({
+      t: t, size: size, width: width, x: W, y: y, boxes: boxes,
+      gap: rand(base, Math.round(base * CFG.MAX_GAP_COEFFICIENT)),
+      speedOffset: t.speedOffset ? (Math.random() > 0.5 ? t.speedOffset : -t.speedOffset) : 0,
+      frame: 0, frameT: 0
+    });
+  }
+  function updateObstacles(dt) {
+    for (var i = 0; i < obstacles.length; i++) {
+      var o = obstacles[i];
+      o.x -= Math.floor((speed + o.speedOffset) * FPS / 1000 * dt);
+      if (o.t.frameRate) { o.frameT += dt; if (o.frameT >= o.t.frameRate) { o.frameT = 0; o.frame ^= 1; } }
+    }
+    obstacles = obstacles.filter(function (o) { return o.x + o.width > 0; });
+    var last = obstacles[obstacles.length - 1];
+    if (!obstacles.length || (last.x + last.width > 0 && last.x + last.width + last.gap < W)) {
+      if (runningTime > CFG.CLEAR_TIME) addObstacle();
+    }
+  }
+  function drawObstacle(o) {
+    if (o.t.type === "PTERODACTYL") {
+      rect(o.x + 12, o.y + 17, 26, 8);   // 몸통
+      rect(o.x, o.y + 17, 12, 4);        // 부리
+      rect(o.x + 38, o.y + 18, 8, 3);    // 꼬리
+      if (o.frame) rect(o.x + 18, o.y + 5, 10, 12); else rect(o.x + 18, o.y + 25, 10, 12);
+      return;
+    }
+    var h = o.t.height;
+    for (var i = 0; i < o.size; i++) {
+      var cx = o.x + i * o.t.width + o.t.width / 2;
+      rect(cx - 3, o.y, 6, h);
+      rect(cx - 9, o.y + h * 0.4, 6, 3); rect(cx - 9, o.y + h * 0.22, 3, h * 0.2 + 3);
+      rect(cx + 3, o.y + h * 0.5, 6, 3); rect(cx + 6, o.y + h * 0.3, 3, h * 0.2 + 3);
+    }
+  }
+
+  // ---- 충돌 ----
+  function collided() {
+    var ducking = trex.ducking && !trex.jumping;
+    var tb = (ducking ? TREX_BOXES.DUCKING : TREX_BOXES.RUNNING).map(function (b) { return shift(b, TREX.START_X, trex.y); });
+    var o = obstacles[0];
+    if (!o) return false;
+    for (var i = 0; i < tb.length; i++)
+      for (var j = 0; j < o.boxes.length; j++)
+        if (overlap(tb[i], shift(o.boxes[j], o.x, o.y))) return true;
+    return false;
+  }
+
+  // ---- 배경 ----
+  function updateScenery(dt) {
+    var dx = Math.floor(speed * FPS / 1000 * dt);
+    groundBumps.forEach(function (b) { b.x -= dx; if (b.x + b.w < 0) { b.x = W + rand(0, 40); b.y = rand(GROUND_Y + TREX.HEIGHT - 1, H - 2); b.w = rand(1, 4); } });
+    clouds.forEach(function (c) { c.x -= CFG.BG_CLOUD_SPEED * FPS / 1000 * dt * 10; });
+    clouds = clouds.filter(function (c) { return c.x + 46 > 0; });
+    var last = clouds[clouds.length - 1];
+    if (clouds.length < CFG.MAX_CLOUDS && (!last || W - last.x > rand(100, 400)) && Math.random() < CFG.CLOUD_FREQUENCY * 0.05)
+      clouds.push({ x: W, y: rand(30, 71) });
+  }
+  function drawScenery() {
+    clouds.forEach(function (c) { rect(c.x, c.y, 46, 6, "#dcdcdc"); rect(c.x + 8, c.y - 5, 22, 5, "#dcdcdc"); });
+    rect(0, GROUND_Y + TREX.HEIGHT - 2, W, 1);
+    groundBumps.forEach(function (b) { rect(b.x, b.y, b.w, 1); });
+  }
+
+  // ---- 점수 ----
+  function score() { return Math.round(distance * CFG.DISTANCE_COEFFICIENT); }
+  function pad(n) { var s = String(n); while (s.length < 5) s = "0" + s; return s; }
+  var lastMilestone = 0, flashUntil = 0;
+  function drawScore() {
+    ctx.font = "bold 13px monospace"; ctx.textAlign = "right"; ctx.fillStyle = INK;
+    var s = score();
+    if (s > 0 && s % CFG.ACHIEVEMENT_DISTANCE === 0 && s !== lastMilestone) { lastMilestone = s; flashUntil = time + 750; }
+    var visible = time > flashUntil || Math.floor((flashUntil - time) / 250) % 2 === 1;
+    if (visible) ctx.fillText(pad(s), W - 10, 20);
+    ctx.fillStyle = "#757575"; ctx.fillText("HI " + pad(hiScore), W - 70, 20);
+  }
+  function drawCenter(text, y, size) {
+    ctx.font = "bold " + size + "px monospace"; ctx.textAlign = "center"; ctx.fillStyle = INK;
+    ctx.fillText(text, W / 2, y);
+  }
+
+  // ---- 루프 ----
+  function crash() {
+    state = "crashed"; gameOverAt = time;
+    var s = score();
+    if (s > hiScore) { hiScore = s; try { localStorage.setItem("dinoHi", String(s)); } catch (e) {} }
+  }
+  function frame(now) {
+    raf = requestAnimationFrame(frame);
+    var dt = Math.min(now - (time || now), 100);
+    time = now;
+    ctx.fillStyle = PAPER; ctx.fillRect(0, 0, W, H);
+
+    if (state === "running") {
+      runningTime += dt;
+      if (speed < CFG.MAX_SPEED) speed = Math.min(CFG.MAX_SPEED, speed + CFG.ACCELERATION * dt / MS_PER_FRAME);
+      distance += speed * dt / MS_PER_FRAME;
+      updateTrex(dt); updateScenery(dt); updateObstacles(dt);
+      if (collided()) crash();
+    } else if (state === "waiting") {
+      updateTrex(dt);
+    }
+
+    drawScenery();
+    obstacles.forEach(drawObstacle);
+    drawTrex(state === "crashed");
+    drawScore();
+    if (state === "waiting") drawCenter("스페이스 / 클릭으로 시작", 60, 14);
+    if (state === "crashed") { drawCenter("G A M E   O V E R", 60, 16); drawCenter("↻ 스페이스 / 클릭으로 다시 시작", 82, 12); }
+  }
+
+  // ---- 입력 ----
+  function press() {
+    if (state === "waiting") { state = "running"; startJump(); }
+    else if (state === "running") startJump();
+    else if (state === "crashed" && time - gameOverAt > CFG.GAMEOVER_CLEAR_TIME) { reset(); state = "running"; lastMilestone = 0; startJump(); }
+  }
+  function down(on) {
+    if (state !== "running") return;
+    if (on) { if (trex.jumping) { trex.speedDrop = true; trex.v = 1; } else trex.ducking = true; }
+    else { trex.ducking = false; trex.speedDrop = false; }
+  }
+  document.addEventListener("keydown", function (e) {
+    if (e.code === "Space" || e.code === "ArrowUp") { e.preventDefault(); if (!e.repeat) press(); }
+    else if (e.code === "ArrowDown") { e.preventDefault(); down(true); }
+  });
+  document.addEventListener("keyup", function (e) { if (e.code === "ArrowDown") down(false); });
+  canvas.addEventListener("pointerdown", function (e) { e.preventDefault(); canvas.focus(); press(); });
+  document.addEventListener("visibilitychange", function () { if (document.hidden && state === "running") state = "waiting"; });
+
+  reset();
+  raf = requestAnimationFrame(frame);
+
+  // 테스트용 훅 (브라우저 콘솔 / 자동 검증에서 사용)
+  window.__dino = { get state() { return state; }, get speed() { return speed; }, get score() { return score(); }, get obstacles() { return obstacles; }, get trexY() { return trex.y; }, press: press };
+})();
+</script>
+</body>
+</html>
