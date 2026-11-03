@@ -8,12 +8,34 @@
   #wrap { max-width: 900px; margin: 0 auto; }
   canvas { width: 100%; display: block; border-bottom: 1px solid #ddd; outline: none; cursor: pointer; image-rendering: pixelated; }
   #hint { text-align: center; color: #888; font-size: 13px; margin-top: 6px; }
+  #board { display: none; margin-top: 14px; padding: 12px 16px; background: #f7f7f7; color: #535353; border: 1px solid #ddd; border-radius: 6px; }
+  #board h3 { margin: 0 0 8px; font-size: 15px; }
+  #board h3 small { font-weight: normal; color: #888; font-size: 12px; margin-left: 6px; }
+  #nameRow { display: flex; gap: 6px; align-items: center; margin-bottom: 10px; font-size: 13px; }
+  #nameRow input { flex: 1; max-width: 180px; padding: 4px 8px; border: 1px solid #bbb; border-radius: 4px; font: inherit; color: inherit; background: #fff; }
+  #status { color: #888; font-size: 12px; margin-bottom: 8px; min-height: 16px; }
+  #rows { list-style: none; margin: 0; padding: 0; font: 14px monospace; }
+  #rows li { display: flex; gap: 10px; padding: 3px 4px; border-bottom: 1px solid #eee; }
+  #rows li.me { background: #ececec; font-weight: bold; }
+  #rows .rank { width: 28px; text-align: right; color: #888; }
+  #rows .nick { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #rows .pts { width: 60px; text-align: right; }
+  #rows .empty { color: #888; justify-content: center; border: 0; }
 </style>
 </head>
 <body>
 <div id="wrap">
   <canvas id="game" width="600" height="150" tabindex="0"></canvas>
   <div id="hint">스페이스 / ↑ : 점프 &nbsp;·&nbsp; ↓ : 숙이기(공중에선 빨리 내려오기) &nbsp;·&nbsp; 화면 터치/클릭도 가능</div>
+  <div id="board">
+    <h3>오늘의 TOP 10<small>매일 자정(KST)에 초기화</small></h3>
+    <div id="nameRow">
+      <label for="nick">닉네임</label>
+      <input id="nick" maxlength="12" placeholder="최대 12자" autocomplete="off">
+    </div>
+    <div id="status"></div>
+    <ol id="rows"></ol>
+  </div>
 </div>
 <script>
 // 상수는 dinorunner.com의 게임 스크립트(809.js)에서 관찰한 값을 기준으로 했고, 코드와 그래픽은 직접 작성했다.
@@ -57,6 +79,76 @@
 
   var hiScore = 0;
   try { hiScore = parseInt(localStorage.getItem("dinoHi") || "0", 10) || 0; } catch (e) {}
+
+  // ---- 일일 리더보드 (Supabase) ----
+  // URL/키는 서버(dino.py)가 치환해 넣는다. 비어 있으면 리더보드 UI를 숨기고 게임만 동작한다.
+  var SUPABASE = { url: "__SUPABASE_URL__", key: "__SUPABASE_KEY__" };
+  var LB_ENABLED = !!(SUPABASE.url && SUPABASE.key) && SUPABASE.url.indexOf("__") !== 0;
+  var LB_LIMIT = 10;
+  var boardEl = document.getElementById("board"), rowsEl = document.getElementById("rows");
+  var statusEl = document.getElementById("status"), nickEl = document.getElementById("nick");
+  var playerName = "", pendingScore = 0;
+  try { playerName = (localStorage.getItem("dinoName") || "").trim().slice(0, 12); } catch (e) {}
+
+  function setStatus(msg) { statusEl.textContent = msg || ""; }
+  function rpc(fn, args) {
+    return fetch(SUPABASE.url + "/rest/v1/rpc/" + fn, {
+      method: "POST",
+      headers: { "apikey": SUPABASE.key, "Content-Type": "application/json" },
+      body: JSON.stringify(args)
+    }).then(function (r) {
+      if (!r.ok) throw new Error(fn + " " + r.status);
+      return r.json();
+    });
+  }
+  // 닉네임은 사용자 입력이므로 반드시 textContent로만 그린다 (HTML 문자열 삽입 금지).
+  function renderBoard(list) {
+    rowsEl.textContent = "";
+    if (!list.length) {
+      var li = document.createElement("li"); li.className = "empty"; li.textContent = "아직 오늘의 기록이 없어요. 첫 번째가 되어보세요!";
+      rowsEl.appendChild(li); return;
+    }
+    list.forEach(function (r) {
+      var li = document.createElement("li");
+      if (playerName && r.player_name === playerName) li.className = "me";
+      [["rank", r.rank], ["nick", r.player_name], ["pts", pad(r.score)]].forEach(function (c) {
+        var s = document.createElement("span"); s.className = c[0]; s.textContent = c[1]; li.appendChild(s);
+      });
+      rowsEl.appendChild(li);
+    });
+  }
+  function loadBoard() {
+    if (!LB_ENABLED) return Promise.resolve();
+    return rpc("get_dino_daily_leaderboard", { p_limit: LB_LIMIT }).then(renderBoard).catch(function () { setStatus("리더보드를 불러오지 못했어요."); });
+  }
+  function submitScore(s) {
+    if (!LB_ENABLED || s <= 0) return;
+    if (!playerName) {
+      pendingScore = Math.max(pendingScore, s);
+      setStatus("닉네임을 입력하면 " + s + "점이 리더보드에 등록돼요.");
+      return;
+    }
+    setStatus("점수 등록 중...");
+    rpc("submit_dino_score", { p_name: playerName, p_score: s })
+      .then(function (best) { setStatus(playerName + "님의 오늘 최고 점수: " + best); return loadBoard(); })
+      .catch(function () { setStatus("점수를 등록하지 못했어요."); });
+  }
+  function commitName() {
+    var n = nickEl.value.trim().slice(0, 12);
+    nickEl.value = n;
+    if (!n || n === playerName) return;
+    playerName = n;
+    try { localStorage.setItem("dinoName", n); } catch (e) {}
+    if (pendingScore > 0) { var s = pendingScore; pendingScore = 0; submitScore(s); }
+    else loadBoard();
+  }
+  if (LB_ENABLED) {
+    boardEl.style.display = "block";
+    nickEl.value = playerName;
+    nickEl.addEventListener("change", commitName);
+    nickEl.addEventListener("keydown", function (e) { if (e.key === "Enter") { commitName(); nickEl.blur(); } });
+    loadBoard();
+  }
 
   var state, trex, obstacles, clouds, groundBumps, speed, distance, runningTime, gameOverAt, time, raf;
 
@@ -219,6 +311,7 @@
     state = "crashed"; gameOverAt = time;
     var s = score();
     if (s > hiScore) { hiScore = s; try { localStorage.setItem("dinoHi", String(s)); } catch (e) {} }
+    submitScore(s);
   }
   function frame(now) {
     raf = requestAnimationFrame(frame);
@@ -256,6 +349,7 @@
     else { trex.ducking = false; trex.speedDrop = false; }
   }
   document.addEventListener("keydown", function (e) {
+    if (e.target === nickEl) return;  // 닉네임 입력 중에는 게임 키를 가로채지 않는다.
     if (e.code === "Space" || e.code === "ArrowUp") { e.preventDefault(); if (!e.repeat) press(); }
     else if (e.code === "ArrowDown") { e.preventDefault(); down(true); }
   });
